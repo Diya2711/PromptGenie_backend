@@ -13,5 +13,4 @@ python-3.11.9
 setuptools>=68.0.0
 wheel
 
-# FIX pandas version 👇
-pandas==2.2.2
+
