@@ -7,7 +7,6 @@ PyJWT==2.8.0
 pymongo==4.7.2
 email-validator==2.1.1
 gunicorn==21.2.0
-python-3.11.9
 
 # ADD THIS 👇 (VERY IMPORTANT)
 setuptools>=68.0.0
