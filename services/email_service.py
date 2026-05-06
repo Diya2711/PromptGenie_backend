@@ -4,9 +4,10 @@ import os
 
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASS = os.getenv("EMAIL_PASS")
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
 
 def send_verification_email(email, token):
-    link = f"http://127.0.0.1:8000/api/v1/auth/verify-email?token={token}"
+    link = f"{BASE_URL}/api/v1/auth/verify-email?token={token}"
 
     subject = "Verify Your Email"
     body = f"""
