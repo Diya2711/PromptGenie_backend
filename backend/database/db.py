@@ -1,23 +1,22 @@
 from pymongo import MongoClient
 import os
 
-# Get MongoDB URI from environment
+# Get Mongo URI from environment
 MONGO_URI = os.getenv("MONGO_URI")
 
+# Safe fallback (prevents crash)
 if not MONGO_URI:
-    raise Exception("❌ MONGO_URI is missing")
+    print("⚠️ WARNING: MONGO_URI not found, using fallback")
+    MONGO_URI = "mongodb://localhost:27017"
 
 # Connect to MongoDB
 try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    client.server_info()  # Force connection check
-    print("✅ MongoDB Connected Successfully")
+    client = MongoClient(MONGO_URI)
+    db = client["promptgenie_db"]
+    print("✅ Connected to MongoDB")
 except Exception as e:
-    print("❌ MongoDB Connection Failed:", e)
+    print("❌ MongoDB connection failed:", e)
     raise e
-
-# Select Database
-db = client["promptgenie_db"]
 
 # Collections
 users_collection = db["users"]
@@ -25,8 +24,5 @@ prompts_collection = db["prompts"]
 history_collection = db["prompts_history"]
 analytics_collection = db["analytics"]
 
-# Create index
-try:
-    users_collection.create_index("email", unique=True)
-except Exception as e:
-    print("⚠️ Index creation issue:", e)
+# Index
+users_collection.create_index("email", unique=True)
