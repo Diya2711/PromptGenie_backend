@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment files
+.env
+
+# VS Code
+.vscode/
+
+# Mac
+.DS_Store
+
+# Log files
+yes.*
+*.log

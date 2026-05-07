@@ -112,9 +112,6 @@ class _AuthScreenState extends State<AuthScreen> {
             context,
             MaterialPageRoute(builder: (_) => const HomeScreen()),
           );
-        } else if (response.statusCode == 403) {
-          // Email not verified
-          _showError("Please verify your email first. Check your inbox for a verification link.");
         } else {
           _showError(data["detail"] ?? "Login failed");
         }

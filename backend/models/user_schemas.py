@@ -14,11 +14,7 @@ class UserResponse(BaseModel):
     id: str
     email: EmailStr
     name: str
-    is_verified: bool = False
 
 class Token(BaseModel):
     access_token: str
     token_type: str
-
-class VerifyEmail(BaseModel):
-    token: str
