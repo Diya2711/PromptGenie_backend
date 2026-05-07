@@ -4,7 +4,8 @@ pymongo==4.7.2
 python-dotenv==1.0.1
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
-python-jose[cryptography]==3.3.0python-multipart==0.0.9
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.9
 email-validator==2.1.1
 google-generativeai==0.8.6
 gunicorn==21.2.0
