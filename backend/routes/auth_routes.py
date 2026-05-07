@@ -9,76 +9,97 @@ from services.auth_service import (
     SECRET_KEY,
     ALGORITHM
 )
-from services.email_service import send_verification_email
+
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="api/v1/auth/login"
+)
 
 
 # 🚀 REGISTER USER
 @router.post("/register", response_model=UserResponse)
 def register_user(user: UserCreate):
-    existing_user = users_collection.find_one({"email": user.email})
+    from services.email_service import send_verification_email
+    from services.auth_service import create_email_token
+
+    # ✅ Check existing email
+    existing_user = users_collection.find_one({
+        "email": user.email
+    })
+
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
 
     # 🔐 Hash password
     hashed_password = get_password_hash(user.password)
 
-    # 🔑 Generate verification token
-    verification_token = jwt.encode(
-        {
-            "email": user.email,
-            "exp": datetime.utcnow() + timedelta(hours=1)
-        },
-        SECRET_KEY,
-        algorithm=ALGORITHM
-    )
-
-    # 📦 Store user
+    # 📦 Store user in MongoDB
     user_dict = {
         "email": user.email,
         "name": user.name,
         "password": hashed_password,
-        "is_verified": False,
+        "is_verified": False,   # Requires email verification
         "created_at": datetime.utcnow()
     }
 
     result = users_collection.insert_one(user_dict)
 
     # 📧 Send verification email
-    send_verification_email(user.email, verification_token)
+    try:
+        verify_token = create_email_token({"sub": user.email})
+        send_verification_email(user.email, verify_token)
+    except Exception as e:
+        print(f"⚠️ Could not send verification email: {e}")
 
+    # ✅ Return response
     return {
         "id": str(result.inserted_id),
         "email": user.email,
-        "name": user.name
+        "name": user.name,
+        "is_verified": False
     }
 
 
 # 🚀 LOGIN USER
 @router.post("/login", response_model=Token)
 def login_user(user: UserLogin):
-    db_user = users_collection.find_one({"email": user.email})
 
-    # ❌ Wrong credentials
-    if not db_user or not verify_password(user.password, db_user["password"]):
+    db_user = users_collection.find_one({
+        "email": user.email
+    })
+
+    # ❌ Invalid credentials
+    if not db_user:
         raise HTTPException(
             status_code=401,
             detail="Incorrect email or password"
         )
 
-    # 🚨 EMAIL VERIFICATION CHECK (THIS IS STEP 4)
+    # ❌ Wrong password
+    if not verify_password(user.password, db_user["password"]):
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password"
+        )
+
+    # ⚠️ Email not verified
     if not db_user.get("is_verified", False):
         raise HTTPException(
             status_code=403,
-            detail="Email not verified. Please check your email."
+            detail="Please verify your email first"
         )
 
-    # ✅ Create token if everything is OK
-    access_token = create_access_token(data={"sub": str(db_user["_id"])})
+    # ✅ Create JWT token
+    access_token = create_access_token(
+        data={"sub": str(db_user["_id"])}
+    )
 
     return {
         "access_token": access_token,
@@ -86,60 +107,84 @@ def login_user(user: UserLogin):
     }
 
 
-# 🚀 VERIFY EMAIL API
-@router.get("/verify-email")
-def verify_email(token: str):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("email")
+# 🔐 GET CURRENT USER
+def get_current_user(
+    token: str = Depends(oauth2_scheme)
+):
 
-        if not email:
-            raise HTTPException(status_code=400, detail="Invalid token")
-
-        user = users_collection.find_one({"email": email})
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        users_collection.update_one(
-            {"email": email},
-            {"$set": {"is_verified": True}}
-        )
-
-        return {"message": "✅ Email verified successfully"}
-
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=400, detail="Token expired")
-
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=400, detail="Invalid token")
-
-
-# 🔐 GET CURRENT USER (Protected routes)
-def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
         user_id: str = payload.get("sub")
+
         if user_id is None:
             raise credentials_exception
+
     except jwt.PyJWTError:
         raise credentials_exception
 
     return user_id
 
 
-# 🔓 OPTIONAL USER (for public routes)
+# 🔓 OPTIONAL USER
 def get_optional_user(
-    token: str = Depends(OAuth2PasswordBearer(tokenUrl="api/v1/auth/login", auto_error=False))
+    token: str = Depends(
+        OAuth2PasswordBearer(
+            tokenUrl="api/v1/auth/login",
+            auto_error=False
+        )
+    )
 ):
+
     if not token:
         return None
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
         return payload.get("sub")
+
     except jwt.PyJWTError:
         return None
+
+
+# ✅ VERIFY EMAIL
+@router.get("/verify-email")
+def verify_email(token: str):
+    from services.auth_service import verify_email_token
+    
+    email = verify_email_token(token)
+    
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired verification token"
+        )
+    
+    # ✅ Update user in database
+    result = users_collection.update_one(
+        {"email": email},
+        {"$set": {"is_verified": True}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+    
+    return {"message": "✅ Email verified successfully!"}

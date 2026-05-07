@@ -1,31 +1,49 @@
 import os
 import json
+
 from dotenv import load_dotenv
-from google import genai
-from ml.classifier import predict_category, get_prompt_score
+import google.generativeai as genai
+
+from ml.classifier import (
+    predict_category,
+    get_prompt_score
+)
 
 load_dotenv()
 
+# Load API key
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# ✅ Create Gemini client ONLY if key exists
-client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+# Configure Gemini
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+
+    model = genai.GenerativeModel(
+        "gemini-1.5-flash"
+    )
+else:
+    model = None
 
 
 def generate_optimized_prompts(raw_idea: str) -> dict:
+
     category = predict_category(raw_idea)
     score = get_prompt_score(raw_idea)
 
-    # ✅ Use Gemini if API key exists
-    if client:
+    # =========================
+    # GEMINI AI GENERATION
+    # =========================
+    if model:
         try:
+
             system_prompt = f"""
 You are a Prompt Engineering expert.
 
 User idea:
 "{raw_idea}"
 
-Return ONLY valid JSON with this format:
+Return ONLY valid JSON in this exact format:
+
 {{
   "Basic": "...",
   "Advanced": "...",
@@ -33,72 +51,98 @@ Return ONLY valid JSON with this format:
 }}
 
 Rules:
-- Basic = simple, high-level prompt
-- Advanced = product-level detailed prompt
+- Basic = simple prompt
+- Advanced = detailed product-level prompt
 - Developer = technical architecture prompt
-- No extra text, only JSON
+- No markdown
+- No explanation
+- Only JSON
 """
 
-            response = client.models.generate_content(
-                model="gemini-1.5-flash",
-                contents=system_prompt
+            response = model.generate_content(
+                system_prompt
             )
 
             text = response.text.strip()
 
-            # ✅ Clean markdown if exists
+            # Remove markdown formatting if Gemini adds it
             if text.startswith("```"):
-                text = text.replace("```json", "").replace("```", "").strip()
+                text = (
+                    text.replace("```json", "")
+                    .replace("```", "")
+                    .strip()
+                )
 
             prompts = json.loads(text)
 
             return {
                 "category": category,
-                "score": score + 15,  # AI boost
+                "score": score + 15,
                 "prompts": {
-                    "Basic": prompts.get("Basic", "Error generating Basic prompt"),
-                    "Advanced": prompts.get("Advanced", "Error generating Advanced prompt"),
-                    "Developer": prompts.get("Developer", "Error generating Developer prompt")
+                    "Basic": prompts.get(
+                        "Basic",
+                        "Basic prompt generation failed"
+                    ),
+
+                    "Advanced": prompts.get(
+                        "Advanced",
+                        "Advanced prompt generation failed"
+                    ),
+
+                    "Developer": prompts.get(
+                        "Developer",
+                        "Developer prompt generation failed"
+                    )
                 }
             }
 
         except Exception as e:
-            print(f"Gemini API Error: {e}")
-            # fallback below
+            print("Gemini Error:", str(e))
 
-    # ✅ Fallback (no API or error)
-    basic = f"""Act as a seasoned professional in {category}.
-I want to build: "{raw_idea}"
+    # =========================
+    # FALLBACK PROMPTS
+    # =========================
+
+    basic = f"""
+Act as a professional in {category}.
+
+Help me build:
+"{raw_idea}"
 
 Provide:
-1. Core features
-2. Target users
-3. Challenges & solutions
+1. Core idea
+2. Features
+3. Users
+4. Benefits
 """
 
-    advanced = f"""You are a Product Manager.
+    advanced = f"""
+Act as a Product Manager.
 
-Convert this idea into a roadmap:
+Convert this into a complete roadmap:
 "{raw_idea}"
 
 Include:
-- Summary
 - MVP
-- Future features
-- Strategy
+- Features
+- Monetization
+- Scaling strategy
+- UI/UX suggestions
 """
 
-    developer = f"""Act as a Senior Engineer.
+    developer = f"""
+Act as a Senior Software Engineer.
 
-Design system for:
+Design architecture for:
 "{raw_idea}"
 
 Include:
 1. Tech stack
-2. Database design
-3. APIs
-4. Scalability
-5. Implementation steps
+2. Backend APIs
+3. Database schema
+4. Authentication
+5. Deployment
+6. Scalability
 """
 
     return {

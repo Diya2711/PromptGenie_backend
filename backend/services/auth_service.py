@@ -15,6 +15,7 @@ if not SECRET_KEY or len(SECRET_KEY) < 32:
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+EMAIL_TOKEN_EXPIRE_MINUTES = 60  # 1 hour
 
 # 🔒 Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -30,7 +31,7 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-# ✅ Create JWT token
+# ✅ Create JWT access token
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
 
@@ -44,8 +45,39 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     })
 
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
     return encoded_jwt
+
+
+# ✅ Create email verification token
+def create_email_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+
+    expire = datetime.utcnow() + (
+        expires_delta if expires_delta else timedelta(minutes=EMAIL_TOKEN_EXPIRE_MINUTES)
+    )
+
+    to_encode.update({
+        "exp": expire,
+        "type": "email_verify"
+    })
+
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+# ✅ Verify email token
+def verify_email_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        
+        if token_type != "email_verify":
+            return None
+            
+        return email
+    except jwt.PyJWTError:
+        return None
 
 
 # ✅ Decode token (optional helper)
