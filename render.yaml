@@ -1,29 +1,41 @@
 services:
   - type: web
     name: promptgenie-backend
-    runtime: python3
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: gunicorn backend.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    env: python
+    rootDir: backend
+
+    buildCommand: pip install -r requirements.txt
+
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
+
     envVars:
       - key: MONGO_URI
         sync: false
+
       - key: SECRET_KEY
-        generateValue: true
+        sync: false
+
+      - key: GEMINI_API_KEY
+        sync: false
+
       - key: EMAIL_USER
         sync: false
+
       - key: EMAIL_PASS
         sync: false
+
       - key: BASE_URL
         sync: false
-    healthCheckPath: /
+
   - type: web
     name: promptgenie-frontend
-    runtime: docker
-    dockerfilePath: frontend/Dockerfile
+    env: static
+    rootDir: frontend
+
+    buildCommand: flutter build web
+
+    staticPublishPath: build/web
+
     envVars:
       - key: API_BASE_URL
         sync: false
-    routes:
-      - type: redirect
-        source: /api/(.*)
-        destination: promptgenie-backend/api/$1
