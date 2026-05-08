@@ -37,13 +37,7 @@ def send_verification_email(email, token):
         print("🚀 Connecting to Gmail SMTP...")
 
         # Connect Gmail SMTP
-        server = smtplib.SMTP(
-            "smtp.gmail.com",
-            587
-        )
-
-        # Secure TLS connection
-        server.starttls()
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
 
         print("🔐 Logging into Gmail...")
 
