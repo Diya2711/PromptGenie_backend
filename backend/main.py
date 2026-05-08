@@ -1,18 +1,22 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import prompt_routes, auth_routes, analytics_routes
+from routes import (
+    prompt_routes,
+    auth_routes,
+    analytics_routes
+)
 
-# Initialize app
+# Create FastAPI app
 app = FastAPI(
     title="PromptGenie API",
     version="1.0.0"
 )
 
-# CORS middleware for Flutter Web frontend
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,14 +41,14 @@ app.include_router(
     tags=["Analytics"]
 )
 
-# Root route
+# Root endpoint
 @app.get("/")
-def read_root():
+def root():
     return {
         "message": "🚀 PromptGenie API is running successfully!"
     }
 
-# Health check route for Render
+# Health check endpoint
 @app.get("/health")
 def health_check():
     return {
