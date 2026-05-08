@@ -1,15 +1,15 @@
-import smtplib
-import ssl
 import os
+import resend
 
-from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASS = os.getenv("EMAIL_PASS")
+# Resend API Key
+resend.api_key = os.getenv("RESEND_API_KEY")
 
+# Backend URL
 BASE_URL = os.getenv(
     "BASE_URL",
     "https://promptgenie-backend.onrender.com"
@@ -18,59 +18,41 @@ BASE_URL = os.getenv(
 
 def send_verification_email(email, token):
 
-    print("🚀 EMAIL FUNCTION STARTED")
-    print("📧 EMAIL_USER:", EMAIL_USER)
-    print("🔑 EMAIL_PASS exists:", EMAIL_PASS is not None)
-
-    verification_link = (
-        f"{BASE_URL}"
-        f"/api/v1/auth/verify-email?token={token}"
-    )
-
-    body = f"""
-Hello,
-
-Welcome to PromptGenie 🚀
-
-Verify your email below:
-
-{verification_link}
-
-Thank you,
-PromptGenie Team
-"""
-
-    msg = MIMEText(body)
-
-    msg["Subject"] = "Verify Your PromptGenie Account"
-    msg["From"] = EMAIL_USER
-    msg["To"] = email
-
     try:
 
-        print("🚀 Connecting with SSL...")
+        verification_link = (
+            f"{BASE_URL}"
+            f"/api/v1/auth/verify-email?token={token}"
+        )
 
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(
-         "smtp.gmail.com",
-          465,
-          context=context,
-          timeout=30
-          ) as server:
-            print("🔐 Logging in...")
+        html_content = f"""
+        <h2>Welcome to PromptGenie 🚀</h2>
 
-            server.login(
-                EMAIL_USER,
-                EMAIL_PASS
-            )
-            print("✅ Gmail login successful")
-            print("📤 Sending email...")
+        <p>Please verify your email:</p>
 
-            server.send_message(msg)
+        <a href="{verification_link}">
+            Verify Email
+        </a>
 
-            print("✅ Email sent successfully")
+        <p>This link expires in 1 hour.</p>
+        """
+
+        response = resend.Emails.send({
+
+            "from": "onboarding@resend.dev",
+
+            "to": email,
+
+            "subject": "Verify Your PromptGenie Account",
+
+            "html": html_content
+
+        })
+
+        print("✅ Verification email sent")
+        print(response)
 
     except Exception as e:
 
-        print("❌ EMAIL ERROR")
+        print("❌ Email sending failed")
         print(str(e))
