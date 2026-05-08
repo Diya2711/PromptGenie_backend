@@ -1,4 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Query
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Depends,
+    status,
+    Query,
+    BackgroundTasks
+)
 from fastapi.security import OAuth2PasswordBearer
 from models.user_schemas import UserCreate, UserLogin, Token, UserResponse
 from database.db import users_collection
@@ -25,8 +32,10 @@ oauth2_scheme = OAuth2PasswordBearer(
 # 🚀 REGISTER USER
 @router.post("/register", response_model=UserResponse)
 @router.post("/signup", response_model=UserResponse)
-def register_user(user: UserCreate):
-
+def register_user(
+    user: UserCreate,
+    background_tasks: BackgroundTasks
+):
     # ✅ Check existing email
     existing_user = users_collection.find_one({
         "email": user.email
@@ -60,10 +69,11 @@ def register_user(user: UserCreate):
     )
 
     # 📩 Send verification email
-    send_verification_email(
-        user.email,
-        verification_token
-    )
+    background_tasks.add_task(
+    send_verification_email,
+    user.email,
+    verification_token
+)
 
     # ✅ Return response
     return {
