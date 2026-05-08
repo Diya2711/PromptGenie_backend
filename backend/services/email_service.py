@@ -4,7 +4,7 @@ import os
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
-# Load .env variables
+# Load environment variables
 load_dotenv()
 
 # Email credentials
@@ -20,7 +20,9 @@ BASE_URL = os.getenv(
 
 def send_verification_email(email, token):
 
-    # Debug logs
+    print("🚀 EMAIL FUNCTION STARTED")
+
+    # Debug environment variables
     print("📧 EMAIL_USER:", EMAIL_USER)
     print("🔑 EMAIL_PASS exists:", EMAIL_PASS is not None)
 
@@ -30,59 +32,60 @@ def send_verification_email(email, token):
         f"/api/v1/auth/verify-email?token={token}"
     )
 
-    # Subject
-    subject = "Verify Your PromptGenie Account"
-
-    # Email content
-    body = f"""
-Hello,
-
-Welcome to PromptGenie 🚀
-
-Please click the link below to verify your email:
-
-{verification_link}
-
-This verification link will expire in 1 hour.
-
-Thank you,
-PromptGenie Team
-"""
-
-    # Create email message
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = EMAIL_USER
-    msg["To"] = email
-
     try:
+
         print("🚀 Connecting to Gmail SMTP...")
 
-        # Connect to Gmail SMTP
-        server = smtplib.SMTP("smtp.gmail.com", 587)
+        # Connect Gmail SMTP
+        server = smtplib.SMTP(
+            "smtp.gmail.com",
+            587
+        )
 
-        # Start secure TLS
+        # Secure TLS connection
         server.starttls()
 
         print("🔐 Logging into Gmail...")
 
-        # Login
+        # Login to Gmail
         server.login(
             EMAIL_USER,
             EMAIL_PASS
         )
 
-        print("📤 Sending verification email...")
+        print("✅ Gmail login successful")
+
+        # Email body
+        body = f"""
+Hello,
+
+Welcome to PromptGenie 🚀
+
+Please verify your email:
+
+{verification_link}
+
+This verification link expires in 1 hour.
+"""
+
+        # Create message
+        msg = MIMEText(body)
+
+        msg["Subject"] = "Verify Your PromptGenie Account"
+        msg["From"] = EMAIL_USER
+        msg["To"] = email
+
+        print("📤 Sending email...")
 
         # Send email
         server.send_message(msg)
 
-        # Close connection
-        server.quit()
+        print("✅ Email sent successfully")
 
-        print("✅ Verification email sent successfully")
+        # Close server
+        server.quit()
 
     except Exception as e:
 
-        print("❌ Email sending failed")
-        print("❌ Error:", str(e))
+        print("❌ EMAIL ERROR")
+        print("❌", str(e))
