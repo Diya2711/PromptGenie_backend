@@ -60,16 +60,17 @@ def register_user(
     }
 
     result = users_collection.insert_one(user_dict)
+# 📧 Email verification token
+verification_token = create_access_token(
+    data={"sub": str(result.inserted_id)},
+    expires_delta=timedelta(hours=1),
+    token_type="email_verify"
+)
 
-    # 📧 Email verification token
-    verification_token = create_access_token(
-        data={"sub": str(result.inserted_id)},
-        expires_delta=timedelta(hours=1),
-        token_type="email_verify"
-    )
+# 📩 Send verification email
+print("🚀 Email task triggered")
 
-    # 📩 Send verification email
-    background_tasks.add_task(
+background_tasks.add_task(
     send_verification_email,
     user.email,
     verification_token
