@@ -4,14 +4,14 @@ import os
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load .env variables
 load_dotenv()
 
 # Email credentials
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASS = os.getenv("EMAIL_PASS")
 
-# Backend base URL
+# Backend URL
 BASE_URL = os.getenv(
     "BASE_URL",
     "https://promptgenie-backend.onrender.com"
@@ -20,22 +20,26 @@ BASE_URL = os.getenv(
 
 def send_verification_email(email, token):
 
+    # Debug logs
+    print("📧 EMAIL_USER:", EMAIL_USER)
+    print("🔑 EMAIL_PASS exists:", EMAIL_PASS is not None)
+
     # Verification link
     verification_link = (
         f"{BASE_URL}"
         f"/api/v1/auth/verify-email?token={token}"
     )
 
-    # Email subject
+    # Subject
     subject = "Verify Your PromptGenie Account"
 
-    # Email body
+    # Email content
     body = f"""
 Hello,
 
 Welcome to PromptGenie 🚀
 
-Please verify your email by clicking the link below:
+Please click the link below to verify your email:
 
 {verification_link}
 
@@ -52,25 +56,33 @@ PromptGenie Team
     msg["To"] = email
 
     try:
-        # Connect to Gmail SMTP server
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        print("🚀 Connecting to Gmail SMTP...")
 
-            # Secure connection
-            server.starttls()
+        # Connect to Gmail SMTP
+        server = smtplib.SMTP("smtp.gmail.com", 587)
 
-            # Login to Gmail
-            server.login(
-                EMAIL_USER,
-                EMAIL_PASS
-            )
+        # Start secure TLS
+        server.starttls()
 
-            # Send email
-            server.send_message(msg)
+        print("🔐 Logging into Gmail...")
+
+        # Login
+        server.login(
+            EMAIL_USER,
+            EMAIL_PASS
+        )
+
+        print("📤 Sending verification email...")
+
+        # Send email
+        server.send_message(msg)
+
+        # Close connection
+        server.quit()
 
         print("✅ Verification email sent successfully")
 
     except Exception as e:
-        print(
-            "❌ Email sending failed:",
-            str(e)
-        )
+
+        print("❌ Email sending failed")
+        print("❌ Error:", str(e))
