@@ -24,6 +24,7 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 # 🚀 REGISTER USER
 @router.post("/register", response_model=UserResponse)
+@router.post("/signup", response_model=UserResponse)
 def register_user(user: UserCreate):
 
     # ✅ Check existing email
@@ -50,12 +51,19 @@ def register_user(user: UserCreate):
     }
 
     result = users_collection.insert_one(user_dict)
+
+    # 📧 Email verification token
     verification_token = create_access_token(
         data={"sub": str(result.inserted_id)},
         expires_delta=timedelta(hours=1),
         token_type="email_verify"
     )
-    send_verification_email(user.email, verification_token)
+
+    # 📩 Send verification email
+    send_verification_email(
+        user.email,
+        verification_token
+    )
 
     # ✅ Return response
     return {
@@ -81,12 +89,16 @@ def login_user(user: UserLogin):
         )
 
     # ❌ Wrong password
-    if not verify_password(user.password, db_user["password"]):
+    if not verify_password(
+        user.password,
+        db_user["password"]
+    ):
         raise HTTPException(
             status_code=401,
             detail="Incorrect email or password"
         )
 
+    # ❌ Email not verified
     if not db_user.get("is_verified", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -116,14 +128,20 @@ def get_current_user(
     )
 
     try:
-        payload = decode_token(token, expected_type="access")
+        payload = decode_token(
+            token,
+            expected_type="access"
+        )
 
         user_id: str = payload.get("sub")
 
         if user_id is None:
             raise credentials_exception
 
-        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        user = users_collection.find_one({
+            "_id": ObjectId(user_id)
+        })
+
         if not user:
             raise credentials_exception
 
@@ -133,9 +151,16 @@ def get_current_user(
     return user_id
 
 
+# 👤 CURRENT USER PROFILE
 @router.get("/me", response_model=UserResponse)
-def read_current_user(user_id: str = Depends(get_current_user)):
-    user = users_collection.find_one({"_id": ObjectId(user_id)})
+def read_current_user(
+    user_id: str = Depends(get_current_user)
+):
+
+    user = users_collection.find_one({
+        "_id": ObjectId(user_id)
+    })
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -149,11 +174,18 @@ def read_current_user(user_id: str = Depends(get_current_user)):
     }
 
 
+# 📧 VERIFY EMAIL
 @router.get("/verify-email")
 def verify_email(token: str = Query(...)):
+
     try:
-        payload = decode_token(token, expected_type="email_verify")
+        payload = decode_token(
+            token,
+            expected_type="email_verify"
+        )
+
         user_id = payload.get("sub")
+
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -177,7 +209,9 @@ def verify_email(token: str = Query(...)):
             detail=str(e)
         )
 
-    return {"message": "Email verified successfully"}
+    return {
+        "message": "Email verified successfully"
+    }
 
 
 # 🔓 OPTIONAL USER
@@ -194,7 +228,11 @@ def get_optional_user(
         return None
 
     try:
-        payload = decode_token(token, expected_type="access")
+        payload = decode_token(
+            token,
+            expected_type="access"
+        )
+
         return payload.get("sub")
 
     except Exception:
