@@ -6,9 +6,18 @@ from fastapi import (
     Query,
     BackgroundTasks
 )
+
 from fastapi.security import OAuth2PasswordBearer
-from models.user_schemas import UserCreate, UserLogin, Token, UserResponse
+
+from models.user_schemas import (
+    UserCreate,
+    UserLogin,
+    Token,
+    UserResponse
+)
+
 from database.db import users_collection
+
 from services.auth_service import (
     get_password_hash,
     verify_password,
@@ -17,10 +26,15 @@ from services.auth_service import (
     SECRET_KEY,
     ALGORITHM
 )
+
 from services.email_service import send_verification_email
+
 from bson import ObjectId
+
 import jwt
+
 from datetime import datetime, timedelta
+
 
 router = APIRouter()
 
@@ -36,7 +50,8 @@ def register_user(
     user: UserCreate,
     background_tasks: BackgroundTasks
 ):
-    # ✅ Check existing email
+
+    # ✅ Check if email already exists
     existing_user = users_collection.find_one({
         "email": user.email
     })
@@ -48,9 +63,11 @@ def register_user(
         )
 
     # 🔐 Hash password
-    hashed_password = get_password_hash(user.password)
+    hashed_password = get_password_hash(
+        user.password
+    )
 
-    # 📦 Store user in MongoDB
+    # 📦 User data
     user_dict = {
         "email": user.email,
         "name": user.name,
@@ -59,24 +76,31 @@ def register_user(
         "created_at": datetime.utcnow()
     }
 
-    result = users_collection.insert_one(user_dict)
-# 📧 Email verification token
-verification_token = create_access_token(
-    data={"sub": str(result.inserted_id)},
-    expires_delta=timedelta(hours=1),
-    token_type="email_verify"
-)
+    # 💾 Save user to MongoDB
+    result = users_collection.insert_one(
+        user_dict
+    )
 
-# 📩 Send verification email
-print("🚀 Email task triggered")
+    # 📧 Create verification token
+    verification_token = create_access_token(
+        data={
+            "sub": str(result.inserted_id)
+        },
+        expires_delta=timedelta(hours=1),
+        token_type="email_verify"
+    )
 
-background_tasks.add_task(
-    send_verification_email,
-    user.email,
-    verification_token
-)
+    # 🚀 Debug log
+    print("🚀 Email task triggered")
 
-    # ✅ Return response
+    # 📩 Send verification email in background
+    background_tasks.add_task(
+        send_verification_email,
+        user.email,
+        verification_token
+    )
+
+    # ✅ Response
     return {
         "id": str(result.inserted_id),
         "email": user.email,
@@ -88,18 +112,19 @@ background_tasks.add_task(
 @router.post("/login", response_model=Token)
 def login_user(user: UserLogin):
 
+    # 🔍 Find user
     db_user = users_collection.find_one({
         "email": user.email
     })
 
-    # ❌ Invalid credentials
+    # ❌ User not found
     if not db_user:
         raise HTTPException(
             status_code=401,
             detail="Incorrect email or password"
         )
 
-    # ❌ Wrong password
+    # ❌ Invalid password
     if not verify_password(
         user.password,
         db_user["password"]
@@ -116,9 +141,11 @@ def login_user(user: UserLogin):
             detail="Email address is not verified"
         )
 
-    # ✅ Create JWT token
+    # 🔐 Create access token
     access_token = create_access_token(
-        data={"sub": str(db_user["_id"])}
+        data={
+            "sub": str(db_user["_id"])
+        }
     )
 
     return {
@@ -135,10 +162,13 @@ def get_current_user(
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+        headers={
+            "WWW-Authenticate": "Bearer"
+        },
     )
 
     try:
+
         payload = decode_token(
             token,
             expected_type="access"
@@ -187,9 +217,12 @@ def read_current_user(
 
 # 📧 VERIFY EMAIL
 @router.get("/verify-email")
-def verify_email(token: str = Query(...)):
+def verify_email(
+    token: str = Query(...)
+):
 
     try:
+
         payload = decode_token(
             token,
             expected_type="email_verify"
@@ -204,8 +237,14 @@ def verify_email(token: str = Query(...)):
             )
 
         result = users_collection.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": {"is_verified": True}}
+            {
+                "_id": ObjectId(user_id)
+            },
+            {
+                "$set": {
+                    "is_verified": True
+                }
+            }
         )
 
         if result.modified_count == 0:
@@ -215,6 +254,7 @@ def verify_email(token: str = Query(...)):
             )
 
     except Exception as e:
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -227,7 +267,9 @@ def verify_email(token: str = Query(...)):
 
 # 🔓 OPTIONAL USER
 def get_optional_user(
+
     token: str = Depends(
+
         OAuth2PasswordBearer(
             tokenUrl="/api/v1/auth/login",
             auto_error=False
@@ -239,6 +281,7 @@ def get_optional_user(
         return None
 
     try:
+
         payload = decode_token(
             token,
             expected_type="access"
