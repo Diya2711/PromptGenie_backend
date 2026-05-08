@@ -51,20 +51,19 @@ PromptGenie Team
         print("🚀 Connecting with SSL...")
 
         context = ssl.create_default_context()
-
         with smtplib.SMTP_SSL(
-            "smtp.gmail.com",
-            465,
-            context=context
-        ) as server:
-
+         "smtp.gmail.com",
+          465,
+          context=context,
+          timeout=30
+          ) as server:
             print("🔐 Logging in...")
 
             server.login(
                 EMAIL_USER,
                 EMAIL_PASS
             )
-
+            print("✅ Gmail login successful")
             print("📤 Sending email...")
 
             server.send_message(msg)
