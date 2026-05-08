@@ -1,17 +1,15 @@
 import smtplib
+import ssl
 import os
 
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Email credentials
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASS = os.getenv("EMAIL_PASS")
 
-# Backend URL
 BASE_URL = os.getenv(
     "BASE_URL",
     "https://promptgenie-backend.onrender.com"
@@ -21,65 +19,59 @@ BASE_URL = os.getenv(
 def send_verification_email(email, token):
 
     print("🚀 EMAIL FUNCTION STARTED")
-
-    # Debug environment variables
     print("📧 EMAIL_USER:", EMAIL_USER)
     print("🔑 EMAIL_PASS exists:", EMAIL_PASS is not None)
 
-    # Verification link
     verification_link = (
         f"{BASE_URL}"
         f"/api/v1/auth/verify-email?token={token}"
     )
 
-    try:
-
-        print("🚀 Connecting to Gmail SMTP...")
-
-        # Connect Gmail SMTP
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-
-        print("🔐 Logging into Gmail...")
-
-        # Login to Gmail
-        server.login(
-            EMAIL_USER,
-            EMAIL_PASS
-        )
-
-        print("✅ Gmail login successful")
-
-        # Email body
-        body = f"""
+    body = f"""
 Hello,
 
 Welcome to PromptGenie 🚀
 
-Please verify your email:
+Verify your email below:
 
 {verification_link}
 
-This verification link expires in 1 hour.
+Thank you,
+PromptGenie Team
 """
 
-        # Create message
-        msg = MIMEText(body)
+    msg = MIMEText(body)
 
-        msg["Subject"] = "Verify Your PromptGenie Account"
-        msg["From"] = EMAIL_USER
-        msg["To"] = email
+    msg["Subject"] = "Verify Your PromptGenie Account"
+    msg["From"] = EMAIL_USER
+    msg["To"] = email
 
-        print("📤 Sending email...")
+    try:
 
-        # Send email
-        server.send_message(msg)
+        print("🚀 Connecting with SSL...")
 
-        print("✅ Email sent successfully")
+        context = ssl.create_default_context()
 
-        # Close server
-        server.quit()
+        with smtplib.SMTP_SSL(
+            "smtp.gmail.com",
+            465,
+            context=context
+        ) as server:
+
+            print("🔐 Logging in...")
+
+            server.login(
+                EMAIL_USER,
+                EMAIL_PASS
+            )
+
+            print("📤 Sending email...")
+
+            server.send_message(msg)
+
+            print("✅ Email sent successfully")
 
     except Exception as e:
 
         print("❌ EMAIL ERROR")
-        print("❌", str(e))
+        print(str(e))
