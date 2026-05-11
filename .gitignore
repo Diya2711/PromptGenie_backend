@@ -1,3 +1,11 @@
-.env 
-__pycache__/ 
-*.pyc 
+# Flutter
+build/
+.dart_tool/
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
