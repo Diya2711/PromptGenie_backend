@@ -1,2 +1,9 @@
 build/** linguist-generated=true
 .dart_tool/** linguist-generated=true
+windows/** linguist-vendored
+linux/** linguist-vendored
+macos/** linguist-vendored
+ios/** linguist-vendored
+android/** linguist-vendored
+build/** linguist-generated=true
+.dart_tool/** linguist-generated=true
